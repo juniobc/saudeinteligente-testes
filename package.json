@@ -1,0 +1,26 @@
+{
+  "name": "saudeinteligente-testes",
+  "version": "1.0.0",
+  "description": "Guardian — Agente de Testes E2E para o ecossistema Saúde Inteligente",
+  "type": "module",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:properties": "npx playwright test tests/__properties__/",
+    "test:core": "npx playwright test tests/core/",
+    "test:oci": "npx playwright test tests/oci/"
+  },
+  "keywords": [
+    "e2e",
+    "playwright",
+    "testes",
+    "saude-inteligente"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "private": true,
+  "dependencies": {
+    "@playwright/test": "^1.52.0",
+    "dotenv": "^16.5.0",
+    "fast-check": "^4.1.1"
+  }
+}

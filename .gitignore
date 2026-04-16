@@ -1,0 +1,17 @@
+# Dependências
+node_modules/
+
+# Estado de autenticação (contém cookies/tokens)
+.auth/
+
+# Variáveis de ambiente (contém credenciais)
+.env
+
+# Relatórios de execução (gerados automaticamente)
+reports/
+
+# Resultados de teste do Playwright
+test-results/
+
+# Cache do Playwright
+playwright-report/
