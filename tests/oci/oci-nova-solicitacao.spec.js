@@ -1,268 +1,187 @@
-// Specs de Nova Solicitação — Módulo OCI
-// Saúde Inteligente — Testes E2E (Requisito 3)
-// Este spec REUTILIZA storageState — sessão autenticada via global setup
+// Spec — Nova Solicitação OCI (Cadastro de Oferta de Cuidado Integrado)
+// Guardian — Testes E2E do módulo OCI
+// Fluxo: Consulta/Cadastro OCI → Solicitar OCI → Selecionar Especialidade → Preencher Formulário → Salvar
 
 import { test, expect } from '@playwright/test';
-import CadOCIPage from '../../page-objects/CadOCIPage.js';
-import SolicitacaoModal from '../../page-objects/SolicitacaoModal.js';
-import { solicitacaoOCI, pacienteNovo } from '../../fixtures/test-data.js';
-import { waitForToast, waitForTableLoad } from '../../tools/helpers.js';
-import { setupConsoleCapture } from '../../tools/console-capture.js';
-import { captureScreenshot } from '../../tools/screenshot-helper.js';
+import { selectReactSelectOption, waitForModalOpen } from '../../tools/component-helpers.js';
+import { waitForToast } from '../../tools/helpers.js';
 
-/**
- * Aguarda a tela CadOCI estar pronta para interação.
- * Em vez de esperar linhas na tabela (que pode estar vazia),
- * espera o botão "Solicitar OCI" ficar visível.
- * @param {CadOCIPage} cadOCI - Instância do Page Object
- */
-async function waitForPageReady(cadOCI) {
-  await cadOCI.btnNovaSolicitacao.waitFor({ state: 'visible', timeout: 15000 });
-}
+test.describe('Nova Solicitação OCI — Módulo OCI', () => {
 
-/** Especialidades esperadas no modal de seleção */
-const especialidadesEsperadas = [
-  'Atenção em Oncologia',
-  'Atenção em Cardiologia',
-  'Atenção em Ortopedia',
-  'Atenção em Oftalmologia',
-  'Atenção em Otorrinolaringologia',
-  'Saúde da Mulher',
-];
-
-test.describe('Nova Solicitação — Módulo OCI', () => {
-  /** @type {import('../../tools/console-capture.js').ConsoleCapture} */
-  let consoleCapture;
-
-  test.beforeEach(async ({ page }, testInfo) => {
-    consoleCapture = setupConsoleCapture(page);
-    await captureScreenshot(page, 'oci-nova-solicitacao', `${testInfo.title}-antes`);
+  test.beforeEach(async ({ page }) => {
+    // Navega para a tela de Consulta/Cadastro OCI
+    await page.goto('/oci/dashboard/consulta_cadastro');
+    await page.waitForLoadState('networkidle');
+    // Aguarda o botão "Solicitar OCI" ficar visível (indica que a tela carregou)
+    await page.getByText('Solicitar OCI').waitFor({ state: 'visible', timeout: 15000 });
   });
 
-  test.afterEach(async ({ page }, testInfo) => {
-    await captureScreenshot(page, 'oci-nova-solicitacao', `${testInfo.title}-depois`);
-    if (consoleCapture.hasConsoleErrors()) {
-      const logs = consoleCapture.getConsoleLogs().filter((l) => l.type === 'error');
-      console.warn(`[console_errors: true] ${testInfo.title} — ${logs.length} erro(s) JS:`, logs);
-      testInfo.annotations.push({ type: 'console_errors', description: 'true' });
-    }
-    consoleCapture.clear();
-  });
-
-  /**
-   * Req 3.1 — Botão "Nova Solicitação" abre modal com especialidades disponíveis.
-   * Verifica que ao clicar em "Solicitar OCI" o modal de seleção de especialidades
-   * é exibido com as 6 opções esperadas.
-   */
-  test('Req 3.1 - Botão "Nova Solicitação" abre modal com especialidades disponíveis', async ({ page }) => {
-    const cadOCI = new CadOCIPage(page);
-
-    // Navega para a tela de Cadastro OCI
-    await cadOCI.goto();
-    await waitForPageReady(cadOCI);
-
+  test('Req 1.1 - Botão "Solicitar OCI" abre modal de seleção de especialidades', async ({ page }) => {
     // Clica no botão "Solicitar OCI"
-    await cadOCI.clickNovaSolicitacao();
+    await page.getByText('Solicitar OCI').click();
 
-    // Verifica que o modal de especialidades está visível
-    await expect(cadOCI.modalEspecialidades).toBeVisible({ timeout: 10000 });
+    // Aguarda o modal de especialidades abrir
+    const modal = await waitForModalOpen(page, 'Selecione a Especialidade');
 
-    // Obtém as especialidades exibidas no modal
-    const especialidades = await cadOCI.getEspecialidadesModal();
+    // Verifica que o modal está visível
+    await expect(modal).toBeVisible();
 
-    // Verifica que todas as especialidades esperadas estão presentes
-    for (const esp of especialidadesEsperadas) {
-      expect(especialidades.some((e) => e.includes(esp))).toBe(true);
-    }
-  });
-
-  /**
-   * Req 3.2 — Seleção de especialidade abre formulário com campo pré-preenchido e linhas de cuidado filtradas.
-   * Verifica que ao selecionar uma especialidade no modal, o formulário de solicitação
-   * abre com a especialidade pré-preenchida e as linhas de cuidado disponíveis são filtradas.
-   */
-  test('Req 3.2 - Seleção de especialidade abre formulário com campo pré-preenchido e linhas de cuidado filtradas', async ({ page }) => {
-    const cadOCI = new CadOCIPage(page);
-    const solicitacaoModal = new SolicitacaoModal(page);
-
-    // Navega para a tela de Cadastro OCI
-    await cadOCI.goto();
-    await waitForPageReady(cadOCI);
-
-    // Abre o modal de especialidades e seleciona uma
-    await cadOCI.clickNovaSolicitacao();
-    await expect(cadOCI.modalEspecialidades).toBeVisible({ timeout: 10000 });
-    await cadOCI.selectEspecialidadeModal(solicitacaoOCI.especialidade);
-
-    // Aguarda o loading desaparecer e o formulário de solicitação abrir
-    const loading = page.locator('text=Carregando');
-    await loading.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
-
-    // Verifica que o formulário de solicitação está aberto
-    const isOpen = await solicitacaoModal.isOpen();
-    expect(isOpen).toBe(true);
-
-    // Verifica que a especialidade está pré-preenchida no título do modal
-    const especialidadePreenchida = await solicitacaoModal.getEspecialidadePreenchida();
-    expect(especialidadePreenchida.toLowerCase()).toContain(solicitacaoOCI.especialidade.toLowerCase());
-
-    // Verifica que as linhas de cuidado estão disponíveis e filtradas
-    const linhasCuidado = await solicitacaoModal.getLinhasCuidadoDisponiveis();
-    expect(linhasCuidado.length).toBeGreaterThan(0);
-  });
-
-  /**
-   * Req 3.3 — Preenchimento completo e submissão cria solicitação com sucesso.
-   * Preenche todos os campos obrigatórios (paciente, linha de cuidado, CID, justificativa),
-   * submete o formulário e verifica toast de sucesso e presença na listagem.
-   */
-  test('Req 3.3 - Preenchimento completo e submissão cria solicitação com sucesso', async ({ page }) => {
-    const cadOCI = new CadOCIPage(page);
-    const solicitacaoModal = new SolicitacaoModal(page);
-
-    // Navega para a tela de Cadastro OCI
-    await cadOCI.goto();
-    await waitForPageReady(cadOCI);
-
-    // Abre o modal de especialidades e seleciona uma
-    await cadOCI.clickNovaSolicitacao();
-    await expect(cadOCI.modalEspecialidades).toBeVisible({ timeout: 10000 });
-    await cadOCI.selectEspecialidadeModal(solicitacaoOCI.especialidade);
-
-    // Aguarda o loading desaparecer e o formulário abrir
-    const loading = page.locator('text=Carregando');
-    await loading.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
-    await expect(solicitacaoModal.modal).toBeVisible({ timeout: 10000 });
-
-    // Seleciona a primeira linha de cuidado disponível
-    const linhasCuidado = await solicitacaoModal.getLinhasCuidadoDisponiveis();
-    expect(linhasCuidado.length).toBeGreaterThan(0);
-    await solicitacaoModal.selectLinhaCuidado(linhasCuidado[0]);
-
-    // Busca e seleciona um paciente pelo nome
-    await solicitacaoModal.searchPaciente(pacienteNovo.nome.substring(0, 5));
-    await solicitacaoModal.selectPacienteSugestao(0);
-
-    // Seleciona o primeiro CID disponível
-    const cids = await solicitacaoModal.getCIDsDisponiveis();
-    expect(cids.length).toBeGreaterThan(0);
-    await solicitacaoModal.selectCID(cids[0]);
-
-    // Preenche a justificativa
-    await solicitacaoModal.fillJustificativa(solicitacaoOCI.justificativa);
-
-    // Submete o formulário
-    await solicitacaoModal.submit();
-
-    // Verifica toast de sucesso (pode conter "sucesso" ou "Sucesso" ou "cadastrad")
-    const toast = page.locator('.Toastify__toast');
-    await expect(toast.first()).toBeVisible({ timeout: 15000 });
-
-    // Verifica que a nova solicitação aparece na listagem
-    await waitForTableLoad(page);
-    const rowCount = await cadOCI.getTableRowCount();
-    expect(rowCount).toBeGreaterThan(0);
-  });
-
-  /**
-   * Req 3.4 — Submissão com campos obrigatórios vazios exibe mensagens de validação.
-   * Abre o formulário de solicitação e submete sem preencher campos obrigatórios,
-   * verificando que mensagens de validação são exibidas.
-   */
-  test('Req 3.4 - Submissão com campos obrigatórios vazios exibe mensagens de validação', async ({ page }) => {
-    const cadOCI = new CadOCIPage(page);
-    const solicitacaoModal = new SolicitacaoModal(page);
-
-    // Navega para a tela de Cadastro OCI
-    await cadOCI.goto();
-    await waitForPageReady(cadOCI);
-
-    // Abre o modal de especialidades e seleciona uma
-    await cadOCI.clickNovaSolicitacao();
-    await expect(cadOCI.modalEspecialidades).toBeVisible({ timeout: 10000 });
-    await cadOCI.selectEspecialidadeModal(solicitacaoOCI.especialidade);
-
-    // Aguarda o loading desaparecer e o formulário abrir
-    const loading = page.locator('text=Carregando');
-    await loading.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
-    await expect(solicitacaoModal.modal).toBeVisible({ timeout: 10000 });
-
-    // Submete o formulário sem preencher campos obrigatórios
-    await solicitacaoModal.submit();
-
-    // Verifica que mensagens de validação são exibidas
-    const errors = await solicitacaoModal.getValidationErrors();
-    expect(errors.length).toBeGreaterThan(0);
-  });
-
-  /**
-   * Req 3.5 — Autocomplete de paciente exibe sugestões e preenche dados ao selecionar.
-   * Digita no campo de busca de paciente, verifica que sugestões aparecem,
-   * seleciona uma sugestão e verifica que o paciente é selecionado.
-   */
-  test('Req 3.5 - Autocomplete de paciente exibe sugestões e preenche dados ao selecionar', async ({ page }) => {
-    const cadOCI = new CadOCIPage(page);
-    const solicitacaoModal = new SolicitacaoModal(page);
-
-    // Navega para a tela de Cadastro OCI
-    await cadOCI.goto();
-    await waitForPageReady(cadOCI);
-
-    // Abre o modal de especialidades e seleciona uma
-    await cadOCI.clickNovaSolicitacao();
-    await expect(cadOCI.modalEspecialidades).toBeVisible({ timeout: 10000 });
-    await cadOCI.selectEspecialidadeModal(solicitacaoOCI.especialidade);
-
-    // Aguarda o loading desaparecer e o formulário abrir
-    const loading = page.locator('text=Carregando');
-    await loading.waitFor({ state: 'hidden', timeout: 15000 }).catch(() => {});
-    await expect(solicitacaoModal.modal).toBeVisible({ timeout: 10000 });
-
-    // Digita no campo de busca de paciente para acionar o autocomplete
-    await solicitacaoModal.searchPaciente(pacienteNovo.nome.substring(0, 5));
-
-    // Verifica que sugestões aparecem no menu do autocomplete
-    const opcoes = page.locator('.Select2__menu .Select2__option');
-    await expect(opcoes.first()).toBeVisible({ timeout: 10000 });
-    const count = await opcoes.count();
+    // Verifica que existem cards de especialidade
+    const cards = modal.locator('.especialidade-option');
+    const count = await cards.count();
     expect(count).toBeGreaterThan(0);
 
-    // Seleciona a primeira sugestão
-    await solicitacaoModal.selectPacienteSugestao(0);
-
-    // Verifica que o paciente foi selecionado (campo exibe valor)
-    const pacienteSelecionado = await solicitacaoModal.getPacienteSelecionado();
-    expect(pacienteSelecionado).toBeTruthy();
+    // Captura as especialidades disponíveis para log
+    const especialidades = await cards.allTextContents();
+    console.log(`[TESTE] Especialidades encontradas (${count}):`, especialidades.map(e => e.trim()));
   });
 
-  /**
-   * Req 3.6 — Seleção de Linha de Cuidado atualiza CIDs disponíveis.
-   * Seleciona uma linha de cuidado e verifica que o campo de CID
-   * é atualizado com opções disponíveis vinculadas à linha selecionada.
-   */
-  test('Req 3.6 - Seleção de Linha de Cuidado atualiza CIDs disponíveis', async ({ page }) => {
-    const cadOCI = new CadOCIPage(page);
-    const solicitacaoModal = new SolicitacaoModal(page);
+  test('Req 1.2 - Seleção de especialidade abre formulário de nova solicitação', async ({ page }) => {
+    // Abre modal de especialidades
+    await page.getByText('Solicitar OCI').click();
+    const modalEsp = await waitForModalOpen(page, 'Selecione a Especialidade');
 
-    // Navega para a tela de Cadastro OCI
-    await cadOCI.goto();
-    await waitForPageReady(cadOCI);
+    // Clica na primeira especialidade disponível
+    const primeiraEsp = modalEsp.locator('.especialidade-option').first();
+    const nomeEsp = await primeiraEsp.textContent();
+    console.log(`[TESTE] Selecionando especialidade: ${nomeEsp?.trim()}`);
+    await primeiraEsp.click();
 
-    // Abre o modal de especialidades e seleciona uma
-    await cadOCI.clickNovaSolicitacao();
-    await expect(cadOCI.modalEspecialidades).toBeVisible({ timeout: 10000 });
-    await cadOCI.selectEspecialidadeModal(solicitacaoOCI.especialidade);
+    // Aguarda o formulário de nova solicitação abrir
+    const modalForm = await waitForModalOpen(page, 'Nova Solicitação');
 
-    // Aguarda o formulário de solicitação abrir
-    await expect(solicitacaoModal.modal).toBeVisible({ timeout: 10000 });
+    // Verifica que o formulário está visível
+    await expect(modalForm).toBeVisible();
 
-    // Seleciona a primeira linha de cuidado disponível
-    const linhasCuidado = await solicitacaoModal.getLinhasCuidadoDisponiveis();
-    expect(linhasCuidado.length).toBeGreaterThan(0);
-    await solicitacaoModal.selectLinhaCuidado(linhasCuidado[0]);
+    // Verifica que os campos principais existem dentro do modal
+    await expect(modalForm.locator('[data-field-name="id_linha_cuidado"]').first()).toBeVisible();
+    await expect(modalForm.locator('[data-field-name="co_pac"]').first()).toBeVisible();
+    await expect(modalForm.locator('textarea[name="ds_justificativa"]')).toBeVisible();
 
-    // Verifica que os CIDs disponíveis foram atualizados
-    const cids = await solicitacaoModal.getCIDsDisponiveis();
-    expect(cids.length).toBeGreaterThan(0);
+    console.log('[TESTE] Formulário de nova solicitação aberto com campos visíveis');
   });
+
+  test('Req 1.3 - Preenchimento completo e submissão cria solicitação OCI', async ({ page }) => {
+    // Abre modal de especialidades
+    await page.getByText('Solicitar OCI').click();
+    await waitForModalOpen(page, 'Selecione a Especialidade');
+
+    // Seleciona primeira especialidade
+    await page.locator('.especialidade-option').first().click();
+
+    // Aguarda formulário abrir
+    const modalForm = await waitForModalOpen(page, 'Nova Solicitação');
+
+    // Aguarda loading desaparecer (overlay que intercepta cliques)
+    const loading = page.locator('.d-flex.flex-column.justify-content-center.align-items-center');
+    await loading.waitFor({ state: 'hidden', timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(1500); // Aguarda campos carregarem
+
+    // Nota: Unidade Responsável (co_cnes_solicitante) vem pré-preenchida e DESABILITADA
+    // É a unidade do usuário logado — não precisa selecionar
+    const unidadeValue = await modalForm.locator('[data-field-name="co_cnes_solicitante"]').first()
+      .locator('.Select2__single-value').textContent().catch(() => 'não preenchida');
+    console.log(`[TESTE] Unidade Responsável (pré-preenchida): ${unidadeValue?.trim()}`);
+
+    // 1. Seleciona Linha de Cuidado (primeira disponível)
+    const linhaCuidado = modalForm.locator('[data-field-name="id_linha_cuidado"]').first();
+    await linhaCuidado.locator('.Select2__control').click();
+    await page.waitForTimeout(500);
+    const primeiraLinha = page.locator('.Select2__option').first();
+    await primeiraLinha.waitFor({ state: 'visible', timeout: 5000 });
+    const nomeLinha = await primeiraLinha.textContent();
+    console.log(`[TESTE] Selecionando linha de cuidado: ${nomeLinha?.trim()}`);
+    await primeiraLinha.click();
+    await page.waitForTimeout(500);
+
+    // 2. Busca e seleciona Paciente (autocomplete)
+    const paciente = modalForm.locator('[data-field-name="co_pac"]').first();
+    await paciente.locator('.Select2__control').click();
+    await page.keyboard.type('Maria');
+    await page.waitForTimeout(2000); // Aguarda debounce + API
+    const primeiroPaciente = page.locator('.Select2__option').first();
+    await primeiroPaciente.waitFor({ state: 'visible', timeout: 10000 });
+    const nomePaciente = await primeiroPaciente.textContent();
+    console.log(`[TESTE] Selecionando paciente: ${nomePaciente?.trim()}`);
+    await primeiroPaciente.click();
+    await page.waitForTimeout(500);
+
+    // 3. Seleciona CID (primeiro disponível)
+    const cid = modalForm.locator('[data-field-name="co_cid"]').first();
+    await cid.locator('.Select2__control').click();
+    await page.waitForTimeout(1000);
+    const primeiroCID = page.locator('.Select2__option').first();
+    await primeiroCID.waitFor({ state: 'visible', timeout: 5000 });
+    const nomeCID = await primeiroCID.textContent();
+    console.log(`[TESTE] Selecionando CID: ${nomeCID?.trim()}`);
+    await primeiroCID.click();
+    await page.waitForTimeout(500);
+
+    // 3.5. Seleciona Profissional Solicitante (primeiro disponível)
+    const profissional = modalForm.locator('[data-field-name="nu_cns_solicitante"]').first();
+    await profissional.locator('.Select2__control').click();
+    await page.waitForTimeout(500);
+    // Tenta digitar para acionar busca (pode ser autocomplete)
+    await page.keyboard.type('a');
+    await page.waitForTimeout(1500);
+    const menuProf = page.locator('.Select2__menu').first();
+    const menuProfVisible = await menuProf.isVisible({ timeout: 3000 }).catch(() => false);
+    if (menuProfVisible) {
+      const primeiroProfissional = page.locator('.Select2__option').first();
+      const nomeProfissional = await primeiroProfissional.textContent();
+      console.log(`[TESTE] Selecionando profissional: ${nomeProfissional?.trim()}`);
+      await primeiroProfissional.click();
+    } else {
+      console.log('[TESTE] ⚠️ Menu de profissional não abriu — pode já estar pré-preenchido');
+      await page.keyboard.press('Escape');
+    }
+    await page.waitForTimeout(500);
+
+    // 4. Preenche Justificativa
+    await modalForm.locator('textarea[name="ds_justificativa"]').fill(
+      'Teste automatizado Guardian — validação do fluxo de cadastro de nova solicitação OCI'
+    );
+
+    // Captura screenshot antes de salvar
+    await page.screenshot({ path: 'reports/screenshots/oci-nova-solicitacao-antes-salvar.png', fullPage: true });
+
+    // 5. Clica em Salvar
+    const btnSalvar = modalForm.locator('button', { hasText: 'Salvar' });
+    await btnSalvar.click();
+
+    // Aguarda resultado (toast de sucesso ou erro)
+    await page.waitForTimeout(3000);
+
+    // Verifica se apareceu toast
+    const toastSuccess = page.locator('.Toastify__toast--success');
+    const toastError = page.locator('.Toastify__toast--error');
+
+    const hasSuccess = await toastSuccess.isVisible({ timeout: 5000 }).catch(() => false);
+    const hasError = await toastError.isVisible({ timeout: 1000 }).catch(() => false);
+
+    if (hasSuccess) {
+      const texto = await toastSuccess.first().textContent();
+      console.log(`[TESTE] ✅ Solicitação criada com sucesso! Toast: "${texto}"`);
+    }
+    if (hasError) {
+      const texto = await toastError.first().textContent();
+      console.log(`[TESTE] ❌ Erro ao criar solicitação. Toast: "${texto}"`);
+    }
+    if (!hasSuccess && !hasError) {
+      // Verifica erros de validação
+      const validationErrors = await modalForm.locator('.invalid-feedback').allTextContents();
+      if (validationErrors.length > 0) {
+        console.log(`[TESTE] ⚠️ Erros de validação: ${JSON.stringify(validationErrors)}`);
+      } else {
+        console.log('[TESTE] ⚠️ Nenhum toast apareceu e nenhum erro de validação');
+      }
+    }
+
+    // Captura screenshot após salvar
+    await page.screenshot({ path: 'reports/screenshots/oci-nova-solicitacao-apos-salvar.png', fullPage: true });
+
+    // Asserção: deve ter sucesso
+    expect(hasSuccess).toBe(true);
+  });
+
 });

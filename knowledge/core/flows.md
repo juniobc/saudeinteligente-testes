@@ -23,34 +23,6 @@
 - **Spec**: `tests/core/core-autenticacao.spec.js`
 - **Status**: ✅ validado
 
-### selecao-grupo-pate
-
-- **Pré-condições**: Usuário autenticado, redirecionado para `/select-sistemas`
-- **Rota**: `/select-sistemas` → `/sistemas`
-- **Passos**:
-  1. Aguardar cards de grupo visíveis — timeout: 10s (cards têm animação de ~3s)
-  2. Localizar card PATE — seletor: `page.locator('h4', { hasText: /PATE|Especializada/i })`
-  3. Clicar no card PATE
-  4. Aguardar redirecionamento para `/sistemas` — timeout: 10s
-- **Resultado esperado**: Usuário redirecionado para tela de seleção de sistema dentro do grupo PATE
-- **Page Object**: —
-- **Spec**: `tests/core/core-autenticacao.spec.js`
-- **Status**: ✅ validado
-
-### selecao-sistema
-
-- **Pré-condições**: Grupo PATE selecionado, tela `/sistemas` carregada
-- **Rota**: `/sistemas` → `/{modulo}/dashboard`
-- **Passos**:
-  1. Aguardar cards de sistema visíveis — seletor: `.card-link`
-  2. Localizar card do módulo desejado — seletor: `.card-link` com `hasText` do nome do módulo (ex: `/Ofertas de Cuidados|OCI/i`)
-  3. Clicar no card do módulo
-  4. Aguardar navegação para `/{modulo}/` — timeout: 15s
-- **Resultado esperado**: Usuário redirecionado para o dashboard do módulo selecionado
-- **Page Object**: `MenuSistemasPage.js`
-- **Spec**: `tests/core/core-autenticacao.spec.js`
-- **Status**: ✅ validado
-
 ### navegacao-menu-lateral
 
 - **Pré-condições**: Usuário autenticado e dentro de um módulo

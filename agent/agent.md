@@ -27,19 +27,26 @@ Antes de iniciar qualquer tarefa E2E, você DEVE carregar os seguintes arquivos:
 1. **Instruções do Agente**: #[[file:saudeinteligente-testes/agent/instructions.md]]
    - Convenções de seletores, padrões de componentes do SPA, hierarquia de navegação e regras de geração de código.
 
-2. **Regras Globais (Knowledge Core)**: #[[file:saudeinteligente-testes/knowledge/core/rules.md]]
+2. **Memória do Agente**: #[[file:saudeinteligente-testes/agent/memory.md]]
+   - Decisões, correções e aprendizados acumulados. Consultar ANTES de cada tarefa para evitar repetir erros.
+
+3. **Sobre o Sistema (Knowledge Core)**: #[[file:saudeinteligente-testes/knowledge/core/about.md]]
+   - O que é o Saúde Inteligente, módulos existentes, público-alvo, conceitos gerais de negócio.
+
+3. **Regras Globais (Knowledge Core)**: #[[file:saudeinteligente-testes/knowledge/core/rules.md]]
    - Regras globais do sistema: autenticação, navegação base, componentes comuns.
 
-3. **Fluxos Globais (Knowledge Core)**: #[[file:saudeinteligente-testes/knowledge/core/flows.md]]
+4. **Fluxos Globais (Knowledge Core)**: #[[file:saudeinteligente-testes/knowledge/core/flows.md]]
    - Fluxos globais validados: login, seleção de município, navegação até módulo, logout.
 
-4. **Seletores Globais (Knowledge Core)**: #[[file:saudeinteligente-testes/knowledge/core/selectors.md]]
+5. **Seletores Globais (Knowledge Core)**: #[[file:saudeinteligente-testes/knowledge/core/selectors.md]]
    - Dicionário de seletores de componentes comuns: login, menu sistemas, toasts, paginação.
 
 ### Carregamento Dinâmico por Módulo
 
 Ao iniciar uma tarefa para um módulo específico (ex: `oci`), carregue também:
-- `knowledge/modules/{modulo}/rules.md` — Regras de negócio do módulo
+- `knowledge/modules/{modulo}/about.md` — O que é o módulo, telas, conceitos e regras de negócio
+- `knowledge/modules/{modulo}/rules.md` — Regras técnicas de automação do módulo
 - `knowledge/modules/{modulo}/flows.md` — Fluxos validados do módulo
 - `knowledge/modules/{modulo}/selectors.md` — Dicionário de seletores do módulo
 - `knowledge/modules/{modulo}/errors.md` — Erros conhecidos e resoluções
@@ -127,6 +134,8 @@ Padrão de nomenclatura:
 
 ## Regras Gerais
 
+- **Use EXCLUSIVAMENTE as ferramentas de `saudeinteligente-testes/tools/`.** Nunca importe ou referencie código de `saudeinteligente-spa/e2e/`. O Guardian tem seu próprio projeto independente com suas próprias ferramentas — os helpers, page objects e scripts do SPA não devem ser usados em hipótese nenhuma.
+- **Sempre assuma que o código de teste está errado antes de culpar a aplicação.** Mas NUNCA corrija automaticamente — sempre descreva o que encontrou e PERGUNTE ao desenvolvedor antes de alterar qualquer código. O desenvolvedor pode ter visto algo na execução visual que você não viu nos logs.
 - **Nunca confie cegamente nos testes existentes.** Eles são rascunhos e podem estar errados.
 - **Sempre pergunte o fluxo ao desenvolvedor** antes de criar ou modificar testes.
 - Todo conteúdo gerado (código, comentários, documentação) deve estar em **pt-BR**.
@@ -139,3 +148,6 @@ Padrão de nomenclatura:
 - O Guardian funciona perfeitamente com apenas `knowledge/core/` — nenhum módulo específico é obrigatório.
 - Dados de teste ficam em `fixtures/` — nunca altere dados existentes, apenas adicione novos.
 - Screenshots e relatórios ficam em `reports/` — use nomenclatura padronizada com contexto e timestamp.
+- **Consulte o banco de dados** via `tools/db-query.js` quando precisar validar dados disponíveis (unidades com profissionais, pacientes existentes, etc.). Credenciais em `knowledge/base_dados/.env.postgres`. Somente SELECT permitido.
+- Registre aprendizados sobre tabelas e dados em `knowledge/base_dados/`.
+- **Atualize `agent/memory.md`** ao final de cada sessão com decisões, correções e dados descobertos.
