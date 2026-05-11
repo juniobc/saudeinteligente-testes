@@ -162,8 +162,8 @@ async function globalSetup(_config) {
     const cardTexts = await page.locator('.card-link').allTextContents().catch(() => []);
     console.log('[global-setup] Cards visíveis em /sistemas:', JSON.stringify(cardTexts));
 
-    // Clica no card do sistema OCI ("Ofertas de Cuidados Integrados")
-    const cardOCI = page.locator('.card-link', { hasText: /Ofertas de Cuidados|OCI/i }).first();
+    // Clica no card do sistema OCI (pode ser "Ofertas de Cuidados", "OCI" ou "Componente Ambulatorial")
+    const cardOCI = page.locator('.card-link', { hasText: /Ofertas de Cuidados|OCI|Componente Ambulatorial/i }).first();
     try {
       await cardOCI.waitFor({ state: 'visible', timeout: 10000 });
       await cardOCI.click();

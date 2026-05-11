@@ -62,6 +62,7 @@ test.describe('Nova Solicitação OCI — Módulo OCI', () => {
   });
 
   test('Req 1.3 - Preenchimento completo e submissão cria solicitação OCI', async ({ page }) => {
+    test.setTimeout(90_000); // Timeout estendido para fluxo completo com slowMo
     // Abre modal de especialidades
     await page.getByText('Solicitar OCI').click();
     await waitForModalOpen(page, 'Selecione a Especialidade');
