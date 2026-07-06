@@ -10,8 +10,8 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Carrega credenciais do banco a partir do .env.postgres
-dotenv.config({ path: resolve(__dirname, '../knowledge/base_dados/.env.postgres') });
+// Carrega credenciais do banco a partir do .env na raiz do projeto
+dotenv.config({ path: resolve(__dirname, '../.env') });
 
 const pool = new pg.Pool({
   host: process.env.DB_HOST,

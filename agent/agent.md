@@ -148,6 +148,6 @@ Padrão de nomenclatura:
 - O Guardian funciona perfeitamente com apenas `knowledge/core/` — nenhum módulo específico é obrigatório.
 - Dados de teste ficam em `fixtures/` — nunca altere dados existentes, apenas adicione novos.
 - Screenshots e relatórios ficam em `reports/` — use nomenclatura padronizada com contexto e timestamp.
-- **Consulte o banco de dados** via `tools/db-query.js` quando precisar validar dados disponíveis (unidades com profissionais, pacientes existentes, etc.). Credenciais em `knowledge/base_dados/.env.postgres`. Somente SELECT permitido.
+- **Consulte o banco de dados** via `tools/db-query.js` quando precisar validar dados disponíveis (unidades com profissionais, pacientes existentes, etc.). Credenciais em `.env` (raiz do projeto), junto com as demais variáveis de ambiente. Somente SELECT permitido.
 - Registre aprendizados sobre tabelas e dados em `knowledge/base_dados/`.
 - **Atualize `agent/memory.md`** ao final de cada sessão com decisões, correções e dados descobertos.
