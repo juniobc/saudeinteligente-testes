@@ -152,6 +152,20 @@ RN10-12 quando a tela de inclusão de exame opcional for localizada/testada —
 uma vez incluído e agendado, o exame opcional deve bloquear o Retorno igual a
 um obrigatório, e isso já está garantido no backend.
 
+## Bug corrigido em 2026-07-09 — toda OCI sem agenda caía na fila de Regulação (§2.1)
+
+Causa raiz: `create_oci` (`oci_service.py`, chamado por `POST /oci`, usado no fluxo
+manual/fallback quando não há agenda disponível na criação) sempre gravava
+`st_fila=0` (Aguardando Autorização) — inclusive para Integrado/Faseado/Sequencial-
+sem-regulação, que nunca deveriam passar pela tela do regulador. Não existe status
+novo no banco (`oci_tb_status_fila` continua os mesmos 10 códigos:
+0=Aguardando Autorização, 1=Aguardando Fase 1, 2=Agendada Fase 1, 3=Aguardando Fase
+2, 4=Agendada Fase 2, 5=Aguardando Fase 3, 6=Agendada Fase 3, 7=Finalizada,
+8=Cancelada, 9=Devolvida) — a correção só passou a usar os códigos certos: `st_fila=0`
+só quando Sequencial + `st_exige_regulacao=true`; caso contrário nasce em
+`st_fila=1` (Aguardando Fase 1), que é a fila correta de "esperando ser agendado" e
+não aparece mais pra o regulador.
+
 ## Caso de teste reaproveitável (Amapá)
 
 **Protocolo 37590** — linha "AVALIACAO DE ESTRABISMO" (id=3, Sequencial,
