@@ -226,13 +226,18 @@ uma única transação parcialmente persistida.
 ## Resumo rápido do que testar (checklist)
 
 - [x] Migração SQL do RNO2 já aplicada em todos os 6 tenants (confirmado 2026-07-09)
-- [ ] RNO2 — snapshot gravado corretamente na OCI (Sequencial com/sem regulação)
+- [x] RNO2 — snapshot gravado corretamente na OCI (Sequencial com/sem regulação) — caso
+      `false` testado em 2026-07-09 (protocolo 37606, linha 9 Câncer de Mama, unidade em
+      Cutias). Ver `guardian/reports/relatorio-conformidade-ate-oci-20260709-integrado.md`
 - [ ] RNO2 — bloqueio de agendamento automático direto (Sequencial + regulação, via API)
 - [ ] §2.1 — OCI sem agenda (Integrado/Faseado/Sequencial-sem-regulação) nasce em
       `st_fila=1`, não aparece na tela de Regulação
 - [ ] §2.1 — regressão: Sequencial com regulação continua indo pra `st_fila=0`
 - [ ] Faseado — Fase 2 pré-agendada pula direto pra `st_fila=4` ao confirmar Fase 1
-- [ ] Integrado — Fase 3 pré-agendada pula direto pra `st_fila=6`
+- [x] Integrado — Fase 3 pré-agendada pula direto pra `st_fila=6` — testado em
+      2026-07-09, achou e corrigiu bug real (`confirmar_comparecimento_batch` não
+      checava retorno pré-agendado); validado com protocolo 37605. Ver
+      `guardian/reports/relatorio-conformidade-ate-oci-20260709-integrado.md`
 - [ ] Regressão — Sequencial sem pré-agendamento continua indo pra "aguardando agendar"
 - [ ] Agendamento automático — tolerância a falta de vaga em exames/retorno (via API)
 - [ ] RN10 — reteste procurando a tela de exame opcional DEPOIS de confirmar Fase 1

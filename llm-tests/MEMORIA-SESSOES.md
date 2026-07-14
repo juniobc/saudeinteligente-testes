@@ -200,9 +200,17 @@ banco antes de assumir onde parou**, pode ter avançado em sessões futuras.
   end-to-end** (protocolo 37603, `st_fila` pulou pra 4 corretamente). Ver
   seção 3 e "Achados adicionais" do relatório de retest pra detalhes
   completos e todos os protocolos de teste (37599-37603).
-- Integrado, Fase 3 pré-agendada pulando pra `st_fila=6` — mesma correção
-  provavelmente já resolve, mas não foi testado especificamente pro caso
-  Integrado (só Faseado foi validado).
+- ~~Integrado, Fase 3 pré-agendada pulando pra `st_fila=6`~~ — **TESTADO e
+  CORRIGIDO em 2026-07-09.** Não era só "faltava testar" — era um bug real:
+  a correção anterior (checar se o Retorno já tem agenda antes de decidir
+  entre Agendada/Aguardando Fase 3) só tinha sido aplicada na função de
+  confirmação de **item único** (`confirmar_comparecimento`), não na de
+  **lote** (`confirmar_comparecimento_batch`) — que é a que a tela realmente
+  usa quando os exames aparecem agrupados na mesma visita (o caso normal).
+  Corrigido replicando a mesma checagem. Validado end-to-end com protocolo
+  limpo 37605 (linha 6, Integrado): `st_fila` foi de 4 direto pra 6 ao
+  confirmar os exames em lote. Ver
+  `guardian/reports/relatorio-conformidade-ate-oci-20260709-integrado.md`.
 - `criar_oci_com_agendamento_multi_fase` só agenda 1 procedimento por fase
   (não itera pelos exames obrigatórios da linha) — bug real, documentado,
   **não corrigido**. Ver achado 0b do relatório de retest.
@@ -312,6 +320,81 @@ uma sessão de dev dedicada pra reescrever essa função corretamente.
 **Protocolo de teste final validado:** 37603 (linha 8, paciente "Ana Maria Teste") — criado
 pela tela, modal "Agendamento de Fases" agendou Consulta+Exame juntos (`st_fila=2`),
 confirmar comparecimento da Fase 1 pela tela pulou direto pra `st_fila=4` (Agendada Fase 2).
+
+## Sessão de retest 2026-07-09 (parte 2) — Integrado, Fase 3 pré-agendada
+
+Retomando o checklist pendente do briefing anterior, testei especificamente o caso
+**Integrado** (que o retest anterior não cobriu — só validou Faseado). Achei e corrigi um
+bug novo: `confirmar_comparecimento_batch` (`fila_service.py`) não checava se o Retorno já
+tinha agenda antes de decidir o próximo `st_fila`, ao contrário da função irmã de item único.
+Como a tela sempre usa a versão em lote quando os exames aparecem agrupados na mesma visita
+(o caso normal, não uma exceção), esse era o caminho real percorrido por qualquer teste de
+Integrado com todas as fases pré-agendadas — por isso nunca tinha sido pego antes. Corrigido
+e validado com protocolo limpo (37605). Relatório completo:
+`guardian/reports/relatorio-conformidade-ate-oci-20260709-integrado.md`.
+
+**Linha reaproveitável para testes futuros de Integrado em Amapá:** id 6 ("AVALIACAO INICIAL
+PARA ONCOLOGIA OFTALMOLOGICA"), unidade 3523845 (ADACHI OFTALMOLOGIA), profissional HILKIAS
+ADACHI ARAUJO (CNS 706402609034687). Tem Consulta (`0905010051`), 4 exames obrigatórios
+(`0211060259`, `0205020089`, `0211060127`, `0211060020`) e Retorno (agenda criada com
+`co_procd_medc` genérico de consulta/teleconsulta, mas o sistema normaliza para o código
+principal da linha — ver nota abaixo). **Atenção:** como todas as linhas Integradas de
+Oftalmologia em Amapá têm mais de 1 exame obrigatório, a tela real "Nova Solicitação" não
+consegue pré-agendar todas as fases (achado 0b, `criar_oci_com_agendamento_multi_fase`) — para
+testar cenários que dependem de todas as fases pré-agendadas, use
+`POST /oci/oci-com-agendamento-automatico` via API direta (documentado no retest anterior).
+
+**Nota sobre agenda de Retorno via `POST /oci/agendas`:** ao criar a agenda de Retorno
+passando `co_procd_medc: ['0301010072']` (código genérico de consulta) com
+`tipo_atendimento_id: 3`, o registro final em `oci_tb_agenda` aparece com `co_procd_medc`
+igual ao **procedimento principal da linha** (ex. `0905010051`), não o código que foi
+enviado — a busca de vaga em `_buscar_primeira_vaga` casa por `co_procd_medc` OU por um
+vínculo em `oci_agenda_procedimento`, então funciona de qualquer forma; só não espere ver o
+código exato que você enviou refletido na coluna `co_procd_medc` da agenda de Retorno.
+
+## RNO2 — como testar regulação=false quando a unidade só atende 1 especialidade
+
+**Sintoma:** com a unidade de trabalho ativa em Oftalmologia (ex. ADACHI OFTALMOLOGIA,
+Amapá), linhas Sequenciais sem regulação de outras especialidades (Câncer de Mama/Próstata/
+Colo do Útero/Gástrico/Colorretal, GIN2-I/II) não aparecem com "Unidade Responsável"
+preenchida no formulário — parecia falta de dado de teste no tenant.
+
+**Solução:** trocar o **município** no combo do header (não só a unidade) — em Amapá,
+municípios menores (ex. Cutias, Pedra Branca do Amaparí) têm UBS genéricas de atenção básica
+que atendem qualquer especialidade, ao contrário das unidades especializadas de Macapá.
+Unidade reaproveitável: **CNES 2021021, "PM CUT UBS AMERICO COELHO PEREIRA"** (município
+Cutias, código 160021). Confirmado funcionando pra linha 9 (Câncer de Mama).
+
+**Limitação de automação encontrada:** o campo "Cidadão Usuário" (busca de paciente,
+`react-select` assíncrono, endpoint `GET /oci/pacientes/autocomplete?cns=...`) não respondeu
+a `preview_fill` nem a técnicas mais agressivas (native setter + `dispatchEvent('input')`,
+digitação char-a-char simulada) — sempre ficou em "Nenhuma opção encontrada", mesmo com a
+mesma chamada de API funcionando perfeitamente via `fetch` direto no console. Não vale a pena
+insistir (mesma lição do datepicker `react-date-range` já documentada abaixo) — usar a API
+diretamente (`POST /oci/oci`, multipart com campo `oci` = JSON stringificado, é o endpoint de
+criação manual/fallback; rota real é `/oci/oci` por causa do prefixo duplicado do router, não
+só `/oci`) pra este trecho específico do fluxo.
+
+## Sessão de retest 2026-07-09 (parte 3) — RNO2 regulação=false
+
+Retomando o último item pendente do checklist, encontrei e usei o município de Cutias (ver
+seção acima) pra testar uma linha Sequencial sem regulação. Protocolo 37606 (linha 9, Câncer
+de Mama, unidade 2021021): confirmado `st_exige_regulacao=false` gravado corretamente na OCI
+e `st_fila=1` (não 0) — igual ao mecanismo já validado pro caso `true`. Relatório atualizado:
+`guardian/reports/relatorio-conformidade-ate-oci-20260709-integrado.md`.
+
+## Sessão 2026-07-09 (parte 4) — Investigação e fix de `ociServicos.js:1799` (preview de agenda)
+
+Achado registrado desde o retest anterior (não confirmado até então): `gerarAgendamentosVisualizacao`
+(preview visual da tela "Cadastrar Nova Agenda") usava a convenção antiga de dia da semana
+(7=domingo) enquanto o form real e o backend usam 0=domingo. Confirmado por leitura de código
+que é **bug só de exibição** — o backend nunca lê o campo `dias` do payload, recalcula tudo
+sozinho a partir de `semanas` (correto). Corrigido em `ociServicos.js:1799` e sua cópia em
+`sisregaServicos.js:1800` (mesma função duplicada nos dois módulos). Validado isoladamente
+via `javascript_tool` no console (domingo `getDay()=0` agora casa com `dia_semana=0`) — não
+validado via fluxo completo de UI porque a sessão do browser perdeu o login entre as partes
+do teste (trocou de ferramenta de preview no meio da sessão). Ver
+`guardian/reports/relatorio-conformidade-ate-oci-20260709-integrado.md`.
 
 ## Lições sobre a ferramenta de browser (`preview_*`)
 
