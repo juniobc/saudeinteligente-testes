@@ -1,5 +1,10 @@
 # Instruções E2E — Saúde Inteligente
 
+> ⚠️ **DESCONTINUADO desde 2026-07-14.** Ver aviso equivalente em `guardian/agent/agent.md`.
+> Testes E2E agora usam diretamente as ferramentas de Browser do Claude Code, não os
+> Page Objects / specs Playwright / seletores documentados abaixo. Mantido como referência
+> histórica (ex: mapeamento de seletores do SPA pode ainda ser útil como ponto de partida).
+
 > **Steering file** do Guardian — Agente de Testes E2E.
 > Este arquivo é carregado no contexto do LLM sempre que ele trabalha com testes end-to-end.
 > Consulte também `knowledge/` para a base de conhecimento incremental do sistema.

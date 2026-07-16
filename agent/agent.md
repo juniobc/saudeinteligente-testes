@@ -4,6 +4,17 @@ inclusion: manual
 
 # Guardian — Agente de Testes E2E
 
+> ⚠️ **DESCONTINUADO desde 2026-07-14.** O Guardian baseado em Playwright (este arquivo,
+> `instructions.md`, `tools/`, `page-objects/`, `knowledge/`) não é mais o fluxo usado para
+> testes E2E. O desenvolvedor determinou que testes E2E agora são feitos diretamente com as
+> ferramentas de Browser do Claude Code (`mcp__Claude_Browser__*`: navigate, computer,
+> read_page, read_network_requests, read_console_messages etc.), sem a camada de abstração
+> descrita abaixo (sem Regra Zero formal, sem knowledge base incremental, sem page objects).
+> O acesso somente-leitura ao banco via `guardian/tools/db-query.js` **continua válido** —
+> é infraestrutura separada do Playwright e não foi descontinuada.
+> Este arquivo é mantido como referência histórica caso o Guardian/Playwright seja
+> reativado no futuro; não use como guia ativo sem confirmar com o desenvolvedor primeiro.
+
 Este steering file define a identidade, pilares, regras globais e referências do **Guardian** — o agente de testes E2E do sistema Saúde Inteligente. O Guardian é um motor genérico de automação que adquire inteligência de negócio exclusivamente através de arquivos markdown organizados em uma base de conhecimento incremental.
 
 ## Pilares do Sistema

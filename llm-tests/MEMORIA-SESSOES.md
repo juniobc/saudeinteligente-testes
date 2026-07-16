@@ -451,3 +451,114 @@ do teste (trocou de ferramenta de preview no meio da sessão). Ver
   correção de código que o `--reload` do uvicorn não aplicou, o novo
   `serverId` muda — sempre atualizar as próximas chamadas com o serverId novo
   (`preview_list` pra conferir se tiver dúvida).
+
+---
+
+## Sessão 2026-07-15/16 — Módulo APS (Viçosa), fora do escopo OCI
+
+Primeira sessão de teste guiado por LLM fora do módulo OCI. Vale para
+qualquer módulo que não seja OCI (`aps`, `aes`, `ppass`, `ras`, `apcs`, etc.).
+
+### `npm run dev:oci` NÃO serve para testar outros módulos
+
+**Achado crítico de ambiente**: o dev server `spa-oci` (`.claude/launch.json`,
+`npm run dev:oci` → `vite --mode oci_development`) define `VITE_FRONTEND=oci`.
+Em `AuthProvider.jsx::buscarPermissoes`, isso trava `ordemDesejada = ['oci']`
+**não importa quais permissões o usuário realmente tenha** — qualquer outro
+módulo (aps, aes, ppass...) fica com "Usuário não possui acesso" mesmo com o
+perfil certo. Não é bug, é o modo de build funcionando como projetado (build
+dedicada só pra OCI).
+
+**Correção**: para testar qualquer módulo fora de OCI, suba um segundo dev
+server com o modo padrão (usa `.env.development`, `VITE_FRONTEND=healthvision`,
+libera todos os módulos): adicionar em `.claude/launch.json` uma config tipo
+`{"name": "spa-healthvision", "runtimeExecutable": "npm", "runtimeArgs":
+["run", "dev", "--", "--port", "5174"], "cwd": "saudeinteligente-spa", "port":
+5174}` e abrir em paralelo ao `spa-oci` (portas diferentes, mesma API 8002).
+
+### Login autentica por CPF, não pelo username
+
+O campo "Usuário" da tela de login busca por `Usuario.cpf ==
+username` (`microservicoAcesso/services.py::login`), não pelo campo
+`username` cadastrado. Sempre logar digitando o **CPF**, mesmo que o registro
+tenha um `username` customizado tipo `aps.teste.vicosa`.
+
+### Onde fica cada módulo na seleção de sistema
+
+A tela pós-login (`/sistemas/`) tem 5 cards fixos, mapeados em
+`SelectSistemas.jsx::sistemasPorCard`:
+- `1` Ambulatorial → `['externo']`
+- `2` Hospitalar → `['externo']`
+- `3` Complexo Regulador → `['sisrega','eletivas','regulacao','contrfin']`
+- `4` **Sala de Inteligência (IA)** → `['aps','aes','apcs','asf','ppass','ras','centralertmonit','centrintelg','prontuario','imuniza','vigs','financeiro']`
+- `5` PATE (Atenção Especializada) → `['oci','cirurgiaeletiva']`
+
+APS (e a maioria dos módulos de BI/dashboard) fica escondido dentro do card
+**"Sala de Inteligência (IA)"**, não em "Ambulatorial" nem "PATE" como se
+poderia supor pelo nome.
+
+### Bug de permissão corrigido: `has_admin_geral` com múltiplos perfis
+
+`microservicoAcesso/auth.py:207` — `has_admin_geral()` usa
+`.scalar_one_or_none()` numa query que pode legitimamente retornar mais de
+uma linha (usuário com o recurso `admin_geral` concedido por 2+ perfis ao
+mesmo tempo, ex. "Admin" + "Admin Geral"). Isso derruba com
+`MultipleResultsFound`, engolido por um `except Exception` genérico no
+middleware, fazendo `is_admin_geral` cair pra `False` sempre. Efeito visível:
+perfil novo criado em "Cadastro de Perfis" some da própria listagem (fica
+filtrada só aos perfis do usuário logado). Fix: `.limit(1)` na query.
+Validado: `GET /acesso/perfis/paginado` foi de 10 → 17 perfis retornados.
+
+### Usuário de teste do módulo APS (mg_vicosa)
+
+Perfil `APS-TESTE-VICOSA` (17 recursos, cobre os 3 grupos de menu Equipes
+eSF/eAP + eSB + eMulti) + usuário `aps.teste.vicosa`:
+- Login (CPF): `12345678909`
+- Senha: `Teste@2026!`
+- Ambos continuam no banco (não removidos) para reuso em sessões futuras.
+
+### Coerência de dados no dashboard principal da APS (`APSDash.jsx`) — dado mock
+
+Ao contrário das 16 telas de linha de cuidado individuais (essas usam API
+real), o dashboard principal (`/aps/dashboard/`, "Visão Geral") mistura dado
+real com blocos inteiros hardcoded:
+- Painel "Financeiro - Evolução" (6 categorias: Ações Estratégicas,
+  Assistência Farmacêutica, Captação Ponderada, COVID-19, Desempenho, Novo
+  Modelo Financiamento 2024) — `APSDash.jsx:1036-1145`, array estático
+  `dataGraph`, todas as 6 categorias com valores byte-a-byte idênticos
+  (`totalReceived: 285000`, etc.) — nunca vem de API.
+- Cartão "Cobertura de Saúde" (Plano de Saúde / Dependentes do SUS) —
+  `APSDash.jsx:194-198`, `planoSaude: 5638864, susDependentes: 5812381` fixo —
+  incompatível com a população real do município (~79 mil) mostrada 2 linhas
+  acima na mesma tela.
+- Cartão "Notas IEGM" — `APSDash.jsx:1568-1571`, valor principal "B+" mas
+  texto complementar diz "IEGM C+" — contradiz a si mesmo, os dois fixos.
+- Endpoint `GET /aps/home_mock` (nome literal) alimenta o gráfico
+  "Evolução dos Recursos Financeiros" do topo e os 5 mini-gráficos de risco —
+  série fixa pra qualquer tenant.
+- Em contraste, população IBGE/cadastrados/sexo/faixa etária no mesmo
+  dashboard **são reais** (`POST /aps/carrega_dados_home`) — não jogar fora
+  ao mockar/corrigir o resto.
+
+### Padrão "componente genérico sem prop wired" — `QuadrimestralChart`
+
+`QuadrimestralChart.jsx` tem `nomeUnidade = "A definir"` como default prop.
+Em `AcoesInterprofissionais.jsx:268-271` (tela eMulti "Ações
+Interprofissionais") o componente é chamado sem passar `nomeUnidade`, embora
+o dado já exista (`equipe.no_unidade_saude`) e seja usado corretamente no
+cabeçalho do card logo acima. Resultado: o gráfico expandido sempre mostra
+"A definir" no lugar do nome real da unidade. Vale conferir esse mesmo
+default nas outras 9 telas que reusam `QuadrimestralChart` (ver lista de
+imports) antes de assumir que só essa tela tem o problema.
+
+### Tabela por (equipe × unidade) pode parecer duplicidade sem ser
+
+Na tela "Ações Interprofissionais", o resumo diz "Total: 2 equipes" mas a
+tabela detalhada (`POST /aps/acoes_interprofissionais/tabela_ine`) lista ~15
+linhas — não é bug, é 1 linha por combinação (equipe eMulti × unidade
+atendida), já que cada equipe cobre várias unidades. Diferente do problema
+real encontrado em "Mais Acesso à APS", onde o dropdown de Equipe (INE)
+lista a mesma equipe várias vezes **na mesma lista de opções** sem
+`DISTINCT` (esse sim é bug de query, não de modelagem). Ao investigar
+"total X mas apareceram Y linhas", sempre checar se Y é uma decomposição
+legítima (equipe×unidade, mês×ano, etc.) antes de reportar como duplicidade.
