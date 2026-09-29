@@ -1,6 +1,6 @@
 // Script utilitário — Consultar unidades com profissionais cadastrados
 // Query baseada em: saudeinteligente-api/microservicoSisrega/service/comuns_service.py → get_profissionais_por_unidade
-// Tabelas: oci_tb_vinculo JOIN oci_tb_profissionais (vínculo profissional-unidade)
+// Tabelas: tb_vinculo_profissional JOIN tb_profissionais (vínculo profissional-unidade)
 // Uso: node tools/scripts/consultar-profissionais.js
 
 import { dbQuery, closePool } from '../db-query.js';
@@ -9,11 +9,11 @@ const SCHEMA = 'go_luziania';
 
 async function main() {
   try {
-    console.log('=== Unidades com profissionais vinculados (oci_tb_vinculo) ===');
+    console.log('=== Unidades com profissionais vinculados (tb_vinculo_profissional) ===');
     const unidades = await dbQuery(`
       SELECT otv.co_cnes, COUNT(DISTINCT otv.co_profs) as total_profissionais
-      FROM ${SCHEMA}.oci_tb_vinculo otv
-      INNER JOIN ${SCHEMA}.oci_tb_profissionais otp ON otv.co_profs = otp.co_profs
+      FROM ${SCHEMA}.tb_vinculo_profissional otv
+      INNER JOIN ${SCHEMA}.tb_profissionais otp ON otv.co_profs = otp.co_profs
       WHERE (otv.dt_ini IS NULL OR otv.dt_ini <= CURRENT_DATE)
         AND (otv.dt_fim IS NULL OR otv.dt_fim >= CURRENT_DATE)
       GROUP BY otv.co_cnes
@@ -27,8 +27,8 @@ async function main() {
       console.log(`\n=== Profissionais da unidade ${topCnes} (top 5) ===`);
       const profs = await dbQuery(`
         SELECT otp.nr_cns AS value, otp.nm_profs AS label, otv.cd_cbo AS cbo
-        FROM ${SCHEMA}.oci_tb_vinculo otv
-        INNER JOIN ${SCHEMA}.oci_tb_profissionais otp ON otv.co_profs = otp.co_profs
+        FROM ${SCHEMA}.tb_vinculo_profissional otv
+        INNER JOIN ${SCHEMA}.tb_profissionais otp ON otv.co_profs = otp.co_profs
         WHERE otv.co_cnes::text = $1
           AND (otv.dt_ini IS NULL OR otv.dt_ini <= CURRENT_DATE)
           AND (otv.dt_fim IS NULL OR otv.dt_fim >= CURRENT_DATE)

@@ -42,8 +42,8 @@ async function main() {
     const solComProf = await dbQuery(`
       SELECT us.co_cnes, est.no_fantasia, COUNT(DISTINCT otv.co_profs) as total_profissionais
       FROM ${SCHEMA}.oci_unidade_solicitante us
-      INNER JOIN ${SCHEMA}.oci_tb_vinculo otv ON otv.co_cnes::text = us.co_cnes::text
-      INNER JOIN ${SCHEMA}.oci_tb_profissionais otp ON otv.co_profs = otp.co_profs
+      INNER JOIN ${SCHEMA}.tb_vinculo_profissional otv ON otv.co_cnes::text = us.co_cnes::text
+      INNER JOIN ${SCHEMA}.tb_profissionais otp ON otv.co_profs = otp.co_profs
       LEFT JOIN ${SCHEMA}.cnes_base_estabelecimentos est ON est.co_cnes = us.co_cnes::text
       WHERE (otv.dt_ini IS NULL OR otv.dt_ini <= CURRENT_DATE)
         AND (otv.dt_fim IS NULL OR otv.dt_fim >= CURRENT_DATE)
